@@ -1,0 +1,759 @@
+{
+    "project_name": "snake_ladders_app",
+    "description": "",
+    "plan": {
+        "project_name": "snake_ladders_app",
+        "display_name": "Snakes & Ladders Mobile",
+        "features": [
+            "Sign\u2011up, login, JWT session handling, and profile storage (display name, avatar, role).",
+            "Create a game lobby with a shareable code, join existing lobbies, and manage player list.",
+            "Random dice generation, token animation, snake/ladder logic, and turn order enforcement.",
+            "WebSocket\u2011based updates so all participants see moves instantly.",
+            "Computer player that makes legal moves, with configurable difficulty affecting strategy."
+        ],
+        "tech_stack": {
+            "backend": "FastAPI",
+            "database": "SQLite",
+            "auth": "JWT",
+            "frontend": "React + Vite"
+        },
+        "db_entities": [
+            "User",
+            "GameSession",
+            "GamePlayer",
+            "Move",
+            "GameHistory",
+            "LeaderboardEntry",
+            "ChatMessage"
+        ],
+        "api_modules": [
+            "auth",
+            "users",
+            "games",
+            "players",
+            "moves",
+            "history",
+            "leaderboard",
+            "chat"
+        ],
+        "user_stories": [
+            {
+                "role": "Player",
+                "want": "to create a new game lobby",
+                "acceptance_criteria": [
+                    "A lobby is created with a unique 6\u2011character code",
+                    "Lobby shows the creator as Player\u202f1 and allows up to 4 total players",
+                    "Lobby status changes to \"waiting\" until at least 2 players have joined"
+                ]
+            },
+            {
+                "role": "Player",
+                "want": "to join an existing lobby using a code",
+                "acceptance_criteria": [
+                    "Entering a valid code adds the user to the lobby and shows the updated player list",
+                    "Joining fails with an error if the lobby is full or the code is invalid",
+                    "After joining, the user sees a \"Ready\" button to confirm participation"
+                ]
+            },
+            {
+                "role": "Player",
+                "want": "to roll the dice on my turn",
+                "acceptance_criteria": [
+                    "Dice roll generates a random integer between 1 and 6 inclusive",
+                    "The token animates to the new square, applying any snake or ladder immediately",
+                    "If the roll would exceed square\u202f100, the token does not move"
+                ]
+            },
+            {
+                "role": "Player",
+                "want": "to see other players' moves in real time",
+                "acceptance_criteria": [
+                    "Board updates for other players' moves within 1\u202fsecond of their action",
+                    "Each player\u2019s token is displayed with a distinct color and label",
+                    "No duplicate or out\u2011of\u2011order moves appear on the board"
+                ]
+            },
+            {
+                "role": "Player",
+                "want": "to play against an AI opponent when no friends are available",
+                "acceptance_criteria": [
+                    "AI selects a legal move within 500\u202fms after its turn begins",
+                    "Difficulty levels (Easy, Medium, Hard) affect the probability of the AI taking optimal moves",
+                    "Game ends correctly when the AI reaches square\u202f100"
+                ]
+            },
+            {
+                "role": "User",
+                "want": "to sign up and log in",
+                "acceptance_criteria": [
+                    "Sign\u2011up requires a unique email, password (min\u202f8\u202fchars), and optional display name",
+                    "Login returns a JWT that is stored securely on the client",
+                    "Authenticated sessions persist for at least 30\u202fdays unless the user logs out"
+                ]
+            },
+            {
+                "role": "User",
+                "want": "to view my game history and win/loss statistics",
+                "acceptance_criteria": [
+                    "History endpoint returns a paginated list (20 items per page) sorted by most recent",
+                    "Each entry shows date, opponent type (human/AI), final position, and win/loss result",
+                    "Statistics page aggregates total games, wins, losses, and win percentage"
+                ]
+            },
+            {
+                "role": "Parent",
+                "want": "to create a child account with restricted chat",
+                "acceptance_criteria": [
+                    "Parent can create a sub\u2011account linked to their own user ID",
+                    "Child accounts cannot send chat messages; they can only view system notifications",
+                    "Parent can toggle the restriction on/off from the account settings"
+                ]
+            },
+            {
+                "role": "Player",
+                "want": "to customize board appearance (theme & sound)",
+                "acceptance_criteria": [
+                    "Settings screen offers at least three visual themes and a sound on/off toggle",
+                    "Chosen theme persists across sessions for the logged\u2011in user",
+                    "Changing a setting updates the UI instantly without requiring a reload"
+                ]
+            }
+        ],
+        "non_functional_requirements": {
+            "authentication": "required \u2014 all game\u2011related endpoints must verify a JWT to protect user data and prevent cheating",
+            "authorization": "role\u2011based: regular users, parent users, and child users (child cannot send chat messages)",
+            "pagination": "required on /games/history and /leaderboard endpoints",
+            "search": "users can be searched by display name for friend invites",
+            "file_uploads": "no \u2014 avatars are optional and stored as URL strings; no binary upload handling needed",
+            "real_time": "yes \u2014 WebSocket channel for board state updates and chat messages"
+        },
+        "data_entities_detail": [
+            {
+                "name": "User",
+                "description": "Stores account credentials and profile information",
+                "key_fields": [
+                    "id",
+                    "email",
+                    "password_hash",
+                    "display_name",
+                    "role"
+                ],
+                "relationships": [
+                    "has many GamePlayer",
+                    "has many GameHistory"
+                ]
+            },
+            {
+                "name": "GameSession",
+                "description": "Represents a single match instance",
+                "key_fields": [
+                    "id",
+                    "created_at",
+                    "status",
+                    "board_theme",
+                    "max_players"
+                ],
+                "relationships": [
+                    "has many GamePlayer",
+                    "has many Move",
+                    "has many ChatMessage"
+                ]
+            },
+            {
+                "name": "GamePlayer",
+                "description": "Links a User (or AI) to a GameSession and tracks position",
+                "key_fields": [
+                    "id",
+                    "game_id",
+                    "user_id",
+                    "is_ai",
+                    "position",
+                    "turn_order"
+                ],
+                "relationships": [
+                    "belongs to GameSession",
+                    "belongs to User"
+                ]
+            },
+            {
+                "name": "Move",
+                "description": "Records each dice roll and resulting token movement",
+                "key_fields": [
+                    "id",
+                    "game_id",
+                    "player_id",
+                    "dice_value",
+                    "from_position",
+                    "to_position",
+                    "timestamp"
+                ],
+                "relationships": [
+                    "belongs to GameSession",
+                    "belongs to GamePlayer"
+                ]
+            },
+            {
+                "name": "GameHistory",
+                "description": "Summary of a finished game for reporting purposes",
+                "key_fields": [
+                    "id",
+                    "game_id",
+                    "winner_player_id",
+                    "ended_at",
+                    "duration_seconds"
+                ],
+                "relationships": [
+                    "belongs to GameSession"
+                ]
+            },
+            {
+                "name": "LeaderboardEntry",
+                "description": "Aggregated win/loss stats per user",
+                "key_fields": [
+                    "id",
+                    "user_id",
+                    "wins",
+                    "losses",
+                    "rating"
+                ],
+                "relationships": [
+                    "belongs to User"
+                ]
+            },
+            {
+                "name": "ChatMessage",
+                "description": "Text messages exchanged in a lobby",
+                "key_fields": [
+                    "id",
+                    "game_id",
+                    "sender_id",
+                    "content",
+                    "sent_at"
+                ],
+                "relationships": [
+                    "belongs to GameSession",
+                    "belongs to User"
+                ]
+            }
+        ],
+        "out_of_scope": [
+            "Augmented reality or 3D board visualization",
+            "In\u2011app purchases or premium content",
+            "Custom board editor for user\u2011generated snakes/ladders",
+            "Cross\u2011platform cloud save beyond basic JWT\u2011based persistence"
+        ]
+    },
+    "architecture": {
+        "api_endpoints": [
+            {
+                "method": "POST",
+                "path": "/seed",
+                "description": "Populate the database with demo data for all tables.",
+                "file": "app\\routes\\seed_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/stats/summary",
+                "description": "Return aggregate counts and key metrics for dashboard overview.",
+                "file": "app\\routes\\stats_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/auth/signup",
+                "description": "Create a new user account with email, password, optional display name and role.",
+                "file": "app\\routes\\auth_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/auth/login",
+                "description": "Authenticate user credentials and return a JWT token.",
+                "file": "app\\routes\\auth_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/users",
+                "description": "Retrieve a paginated list of users; supports search by display_name and filter by role.",
+                "file": "app\\routes\\user_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/users/{id}",
+                "description": "Get detailed information for a specific user.",
+                "file": "app\\routes\\user_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/users",
+                "description": "Create a new user record (admin use).",
+                "file": "app\\routes\\user_routes.py"
+            },
+            {
+                "method": "PUT",
+                "path": "/users/{id}",
+                "description": "Update profile fields of an existing user.",
+                "file": "app\\routes\\user_routes.py"
+            },
+            {
+                "method": "DELETE",
+                "path": "/users/{id}",
+                "description": "Remove a user account.",
+                "file": "app\\routes\\user_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/games",
+                "description": "List game sessions with optional search by lobby_code and filter by status; supports pagination.",
+                "file": "app\\routes\\game_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/games/{id}",
+                "description": "Retrieve details of a specific game session.",
+                "file": "app\\routes\\game_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/games",
+                "description": "Create a new game lobby, generating a unique 6\u2011character code.",
+                "file": "app\\routes\\game_routes.py"
+            },
+            {
+                "method": "PUT",
+                "path": "/games/{id}",
+                "description": "Update mutable fields of a game session (e.g., status, board_theme).",
+                "file": "app\\routes\\game_routes.py"
+            },
+            {
+                "method": "DELETE",
+                "path": "/games/{id}",
+                "description": "Delete a game session (allowed only before start).",
+                "file": "app\\routes\\game_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/players",
+                "description": "List game players; supports search by display_name and filter by game_id; pagination enabled.",
+                "file": "app\\routes\\player_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/players/{id}",
+                "description": "Get details of a specific game player.",
+                "file": "app\\routes\\player_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/players",
+                "description": "Add a player (human or AI) to a game session.",
+                "file": "app\\routes\\player_routes.py"
+            },
+            {
+                "method": "PUT",
+                "path": "/players/{id}",
+                "description": "Update player attributes such as position or turn order.",
+                "file": "app\\routes\\player_routes.py"
+            },
+            {
+                "method": "DELETE",
+                "path": "/players/{id}",
+                "description": "Remove a player from a game session.",
+                "file": "app\\routes\\player_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/moves",
+                "description": "Retrieve a list of moves; supports search by player_id and filter by game_id; pagination supported.",
+                "file": "app\\routes\\move_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/moves/{id}",
+                "description": "Get details of a specific move record.",
+                "file": "app\\routes\\move_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/moves",
+                "description": "Record a dice roll and resulting token movement for a player.",
+                "file": "app\\routes\\move_routes.py"
+            },
+            {
+                "method": "PUT",
+                "path": "/moves/{id}",
+                "description": "Modify an existing move entry (admin correction).",
+                "file": "app\\routes\\move_routes.py"
+            },
+            {
+                "method": "DELETE",
+                "path": "/moves/{id}",
+                "description": "Delete a move record.",
+                "file": "app\\routes\\move_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/leaderboard",
+                "description": "Get paginated leaderboard entries; supports search by user display_name and filter by rating range.",
+                "file": "app\\routes\\leaderboard_routes.py"
+            },
+            {
+                "method": "GET",
+                "path": "/leaderboard/{id}",
+                "description": "Retrieve a specific leaderboard entry.",
+                "file": "app\\routes\\leaderboard_routes.py"
+            },
+            {
+                "method": "POST",
+                "path": "/leaderboard",
+                "description": "Create a new leaderboard entry (used when a user first plays).",
+                "file": "app\\routes\\leaderboard_routes.py"
+            },
+            {
+                "method": "PUT",
+                "path": "/leaderboard/{id}",
+                "description": "Update wins, losses, or rating for a leaderboard entry.",
+                "file": "app\\routes\\leaderboard_routes.py"
+            },
+            {
+                "method": "DELETE",
+                "path": "/leaderboard/{id}",
+                "description": "Remove a leaderboard entry.",
+                "file": "app\\routes\\leaderboard_routes.py"
+            }
+        ],
+        "database_schema": [
+            {
+                "table_name": "users",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "email",
+                        "type": "VARCHAR(255)",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "password_hash",
+                        "type": "VARCHAR(255)",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "display_name",
+                        "type": "VARCHAR(100)",
+                        "is_primary_key": false,
+                        "is_nullable": true
+                    },
+                    {
+                        "name": "avatar_url",
+                        "type": "VARCHAR(255)",
+                        "is_primary_key": false,
+                        "is_nullable": true
+                    },
+                    {
+                        "name": "role",
+                        "type": "VARCHAR(20)",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "created_at",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            },
+            {
+                "table_name": "game_sessions",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "created_at",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "status",
+                        "type": "VARCHAR(20)",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "board_theme",
+                        "type": "VARCHAR(50)",
+                        "is_primary_key": false,
+                        "is_nullable": true
+                    },
+                    {
+                        "name": "max_players",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "lobby_code",
+                        "type": "VARCHAR(6)",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "winner_player_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": true
+                    }
+                ]
+            },
+            {
+                "table_name": "game_players",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "game_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "user_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": true
+                    },
+                    {
+                        "name": "is_ai",
+                        "type": "BOOLEAN",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "position",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "turn_order",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "created_at",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            },
+            {
+                "table_name": "moves",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "game_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "player_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "dice_value",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "from_position",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "to_position",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "timestamp",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            },
+            {
+                "table_name": "game_histories",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "game_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "winner_player_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "ended_at",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "duration_seconds",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            },
+            {
+                "table_name": "leaderboard_entries",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "user_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "wins",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "losses",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "rating",
+                        "type": "FLOAT",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            },
+            {
+                "table_name": "chat_messages",
+                "columns": [
+                    {
+                        "name": "id",
+                        "type": "INTEGER",
+                        "is_primary_key": true,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "game_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "sender_id",
+                        "type": "INTEGER",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "content",
+                        "type": "TEXT",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    },
+                    {
+                        "name": "sent_at",
+                        "type": "DATETIME",
+                        "is_primary_key": false,
+                        "is_nullable": false
+                    }
+                ]
+            }
+        ],
+        "folder_structure": {
+            "backend": [
+                "app",
+                "app/models",
+                "app/schemas",
+                "app/routes",
+                "app/services",
+                "app/utils",
+                "app/dependencies",
+                "app/config"
+            ]
+        },
+        "frontend_structure": {
+            "pages": [
+                "LoginPage",
+                "SignUpPage",
+                "LobbyPage",
+                "GamePage",
+                "HistoryPage",
+                "LeaderboardPage",
+                "SettingsPage",
+                "ProfilePage"
+            ],
+            "components": [
+                "Header",
+                "Footer",
+                "GameBoard",
+                "Dice",
+                "PlayerList",
+                "ChatBox",
+                "ThemeSelector",
+                "SoundToggle",
+                "LobbyCodeInput",
+                "PlayerCard"
+            ]
+        }
+    },
+    "provider": "auto",
+    "generated_at": "2026-06-27T22:38:49.772750",
+    "generation_time_seconds": 20.88,
+    "version": "1.0"
+}
