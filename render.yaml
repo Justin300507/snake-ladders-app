@@ -1,0 +1,34 @@
+databases:
+  - name: snake-ladders-app-db
+    databaseName: snake_ladders_app_db
+    plan: free
+
+services:
+  - type: web
+    name: snake-ladders-app-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r app/requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: snake-ladders-app-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+
+  - type: web
+    name: snake-ladders-app-frontend
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false

@@ -1,0 +1,49 @@
+{
+  "decisions": [
+    {
+      "agent": "product_manager",
+      "decision": "product_spec_created",
+      "rationale": "Classic board game for friends, with online multiplayer and AI opponents.",
+      "data": {
+        "features": 8,
+        "user_stories": 9,
+        "must_have": [
+          "User Authentication & Profile",
+          "Lobby Creation & Join",
+          "Turn\u2011Based Dice Roll & Movement Engine",
+          "Real\u2011Time Multiplayer Sync",
+          "AI Opponent with Difficulty Levels"
+        ]
+      }
+    },
+    {
+      "agent": "architect",
+      "decision": "architecture_created",
+      "rationale": "29 endpoints across 8 files",
+      "data": {
+        "endpoints": 29
+      }
+    },
+    {
+      "agent": "tech_lead",
+      "decision": "constraints_set",
+      "rationale": "The proposed architecture covers most core features and follows the FastAPI conventions, but it lacks several required endpoints (game history, chat, ",
+      "data": {
+        "critical_issues": 2,
+        "auth_endpoints": 30,
+        "pagination_required": 7
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "decision": "pipeline_complete",
+      "rationale": "V6 score: 61/100",
+      "data": {
+        "total_time": 407.48,
+        "can_export": false
+      }
+    }
+  ],
+  "conflicts": [],
+  "shared_context_keys": []
+}
